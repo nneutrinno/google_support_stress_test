@@ -1,33 +1,29 @@
-const Datastore = require('@google-cloud/datastore');
-const _ = require('lodash');
-const path = require('path');
-const util = require('util');
-const fs = require('fs');
-const dotenv = require('dotenv');
-
+import * as Datastore from '@google-cloud/datastore';
+import * as _ from 'lodash';
+import * as path from 'path';
+import * as util from 'util';
+import * as fs from 'fs';
 const AMOUNT_FIELDS = 50;
 const AMOUNT_CHARS_PER_FIELD = 100;
 const DS_LIMIT = 500;
-const PARALELISM = 36; // 36 // 18k
+const PARALELISM = 5; // 36 // 18k
 const NUMBER_OF_ENTITIES = 100000;
+const NUMBER_OF_CONNECTIONS_OPEN = 10;
 async function moveABunchOfData() {
-    loadEnvironmentByName('.env');
-    const environment = getEnvironment();
-    const { APP_ENV, DS_LIMIT, GCP_PROJECT_ID, KIND } = environment;
     log(environment);
     const entities = _.range(NUMBER_OF_ENTITIES).map(generateRow);
     let upsertArray = [];
     let count = 0;
-    const ds = getDS();
+    TransactDatastore.initDataStore();
     try {
         let promises = [];
         let start = Date.now();
         for (const items of getSlicedArray(entities, DS_LIMIT)) {
-            upsertArray.push(...items.map(row => getPayload(KIND, row['id'], row)));
+            upsertArray.push(...items.map(row => getPayload(environment.KIND, row['id'], row)));
             // 
             if (isValidArray(upsertArray)) {
                 ++count;
-                promises.push(upsert(upsertArray));
+                promises.push(upsert(TransactDatastore.getDatastoreConnection, upsertArray));
                 upsertArray = [];
             }
             if (count % PARALELISM === 0) {
@@ -43,8 +39,6 @@ async function moveABunchOfData() {
         }
         await Promise.all(promises);
         log("🚀 ~ file: datastore-stress-test.ts ~ line 291 ~ moveABunchOfData ~ out");
-        const items = await Promise.all(entities.map(item => ds.get(getGenericKey(ds, KIND, item.id))));
-        log('Saved', items.filter(isValidRef).length);
     }
     catch (err) {
         log('err', err);
@@ -54,67 +48,12 @@ async function moveABunchOfData() {
         const row = { ...mock, id: SafeId.create(), [`field${1000}`]: mock };
         return row;
     }
-    function getDS() {
-        return new Datastore.Datastore({
-            projectId: GCP_PROJECT_ID,
-            apiEndpoint: '',
-            namespace: APP_ENV,
-        });
-    }
-    function stringKey(key) {
-        return key.name + key.kind;
-    }
-    function getNonRepeatedUpsertKey(upsertArray) {
-        const nonRepeatedArray = [];
-        const unique = {};
-        for (const single of upsertArray) {
-            unique[stringKey(single.key)] = single;
-        }
-        ;
-        for (const key in unique) {
-            const datastoreObj = unique[key];
-            datastoreObj.excludeFromIndexes = [];
-            nonRepeatedArray.push(datastoreObj);
-        }
-        ;
-        return nonRepeatedArray;
-    }
-    ;
-    async function upsert(upsertArray) {
-        const nonRepeatedArray = getNonRepeatedUpsertKey(upsertArray);
-        try {
-            if (nonRepeatedArray.length > DS_LIMIT) {
-                for (let array of getSlicedArray(nonRepeatedArray, DS_LIMIT)) {
-                    array.forEach((item) => {
-                        item.excludeLargeProperties = true;
-                    });
-                    const datastore = ds;
-                    await datastore.upsert(array);
-                }
-                ;
-            }
-            else if (isValidArray(nonRepeatedArray)) {
-                nonRepeatedArray.forEach((x) => {
-                    x.excludeLargeProperties = true;
-                });
-                const datastore = ds;
-                await datastore.upsert(nonRepeatedArray);
-            }
-            ;
-        }
-        catch (err) {
-            // log('upsert', {
-            //     err,
-            // })
-            throw err;
-        }
-    }
     function getGenericKey(datastore, kind, id) {
         return datastore.key([kind, id]);
     }
     function getPayload(kind, id, data) {
         return {
-            key: getGenericKey(ds, kind, id),
+            key: getGenericKey(getDS(), kind, id),
             data
         };
     }
@@ -132,6 +71,59 @@ function getEnvironment() {
         DS_LIMIT,
         KIND,
         GCP_CREDENTIALS_PATH,
+    });
+}
+async function upsert(getDS, upsertArray) {
+    const ds = getDS();
+    try {
+        if (upsertArray.length > DS_LIMIT) {
+            for (let array of getSlicedArray(upsertArray, DS_LIMIT)) {
+                array.forEach((item) => {
+                    item.excludeLargeProperties = true;
+                });
+                const datastore = ds;
+                await datastore.upsert(array);
+            }
+            ;
+        }
+        else if (isValidArray(upsertArray)) {
+            upsertArray.forEach((x) => {
+                x.excludeLargeProperties = true;
+            });
+            const datastore = ds;
+            await datastore.upsert(upsertArray);
+        }
+        ;
+    }
+    catch (err) {
+        // log('upsert', {
+        //     err,
+        // })
+        throw err;
+    }
+}
+class TransactDatastore {
+    static initDataStore() {
+        TransactDatastore.dataStore = [];
+        TransactDatastore.currentUsed = 0;
+        for (let k = 0; k < NUMBER_OF_CONNECTIONS_OPEN; ++k) {
+            TransactDatastore.dataStore.push(getDS());
+        }
+    }
+    ;
+    static getDatastoreConnection() {
+        if (++TransactDatastore.currentUsed >= NUMBER_OF_CONNECTIONS_OPEN) {
+            TransactDatastore.currentUsed = 0;
+        }
+        return TransactDatastore.dataStore[TransactDatastore.currentUsed];
+    }
+    ;
+}
+function getDS() {
+    return new Datastore.Datastore({
+        projectId: environment.GCP_PROJECT_ID,
+        apiEndpoint: '',
+        namespace: environment.APP_ENV,
     });
 }
 // // // // // // // // 
@@ -278,4 +270,6 @@ function log(...message) {
     console.debug(print(...message));
 }
 // 
+loadEnvironmentByName('.env');
+const environment = getEnvironment();
 moveABunchOfData();

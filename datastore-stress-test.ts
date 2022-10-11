@@ -16,8 +16,6 @@ const NUMBER_OF_CONNECTIONS_OPEN = 10;
 
 
 
-
-
 async function moveABunchOfData(): Promise<void> {
 
     log(environment);
@@ -28,7 +26,6 @@ async function moveABunchOfData(): Promise<void> {
     let count: number = 0;
 
     TransactDatastore.initDataStore();
-
 
     try {
         let promises: Promise<void>[] = [];
@@ -61,9 +58,6 @@ async function moveABunchOfData(): Promise<void> {
         await Promise.all(promises)
 
         log("🚀 ~ file: datastore-stress-test.ts ~ line 291 ~ moveABunchOfData ~ out");
-        // const ds = 
-        // const items = await Promise.all(entities.map(item => ds.get(getGenericKey(ds, KIND, item.id))));
-        // log('Saved', items.filter(isValidRef).length)
         
     } catch (err) {
         log('err', err);
@@ -76,55 +70,11 @@ async function moveABunchOfData(): Promise<void> {
         return row;
     }
     
-    function stringKey(key: TDatastoreKey): string {
-        return key.name + key.kind;
-    }
-    function getNonRepeatedUpsertKey(upsertArray: TArrayUpsert): TArrayUpsert {
-        const nonRepeatedArray: TArrayUpsert = [];
-        const unique: { [kindIDName: string]: TDatastorePayload } = {};
-        for (const single of upsertArray) {
-            unique[stringKey(single.key)] = single;
-        };
-        for (const key in unique) {
-            const datastoreObj = unique[key];
-            datastoreObj.excludeFromIndexes = [];
-            nonRepeatedArray.push(datastoreObj);
-        };
-        return nonRepeatedArray;
-    };
-    async function upsert(getDS: () => Datastore.Datastore, upsertArray: TArrayUpsert): Promise<void> {
-        const ds = getDS();
-        const nonRepeatedArray: DatastorePayload[] = getNonRepeatedUpsertKey(upsertArray);
-
-        try {
-
-            if (nonRepeatedArray.length > DS_LIMIT) {
-                for (let array of getSlicedArray<TDatastorePayload>(nonRepeatedArray, DS_LIMIT)) {
-                    array.forEach((item) => {
-                        item.excludeLargeProperties = true;
-                    });
-                    const datastore = ds;
-                    await datastore.upsert(array);
-
-                };
-            } else if (isValidArray(nonRepeatedArray)) {
-                nonRepeatedArray.forEach((x) => {
-                    x.excludeLargeProperties = true;
-                })
-                const datastore = ds;
-                await datastore.upsert(nonRepeatedArray);
-            };
-        } catch (err) {
-            // log('upsert', {
-            //     err,
-            // })
-            throw err;
-        }
-    }
 
     function getGenericKey(datastore: TDatastore, kind: string, id: string): TDatastoreKey {
         return datastore.key([kind, id]);
     }
+
     function getPayload<T extends {}>(kind: string, id: string, data: T): DatastorePayload<T> {
         return {
             key: getGenericKey(getDS(), kind, id),
@@ -151,6 +101,34 @@ function getEnvironment(): Env {
     })
 }
 
+async function upsert(getDS: () => Datastore.Datastore, upsertArray: TArrayUpsert): Promise<void> {
+    const ds = getDS();
+
+    try {
+
+        if (upsertArray.length > DS_LIMIT) {
+            for (let array of getSlicedArray<TDatastorePayload>(upsertArray, DS_LIMIT)) {
+                array.forEach((item) => {
+                    item.excludeLargeProperties = true;
+                });
+                const datastore = ds;
+                await datastore.upsert(array);
+
+            };
+        } else if (isValidArray(upsertArray)) {
+            upsertArray.forEach((x) => {
+                x.excludeLargeProperties = true;
+            })
+            const datastore = ds;
+            await datastore.upsert(upsertArray);
+        };
+    } catch (err) {
+        // log('upsert', {
+        //     err,
+        // })
+        throw err;
+    }
+}
 class TransactDatastore {
     private static currentUsed: number;
     private static dataStore: Datastore.Datastore[];
