@@ -1,8 +1,11 @@
-import * as Datastore from '@google-cloud/datastore';
-import * as _ from 'lodash';
-import * as path from 'path';
-import * as util from 'util';
-import * as fs from 'fs';
+const Datastore = require('@google-cloud/datastore');
+const _ = require('lodash');
+const path = require('path');
+const util = require('util');
+const fs = require('fs');
+const dotenv = require('dotenv');
+
+
 const AMOUNT_FIELDS = 50;
 const AMOUNT_CHARS_PER_FIELD = 100;
 const DS_LIMIT = 500;
