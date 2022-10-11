@@ -6,23 +6,13 @@ import * as fs from 'fs';
 import dotenv = require('dotenv');
 
 
-function getEnvironment(): Env {
-    const GCP_PROJECT_ID = process.env.GCP_PROJECT_ID;
-    const APP_ENV = process.env.APP_ENV;
-    const KIND = process.env.KIND;
-    const GCP_CREDENTIALS_PATH = process.env.GCP_CREDENTIALS_PATH;
 
-    process.env.GCLOUD_PROJECT = GCP_PROJECT_ID;
-    process.env.GOOGLE_APPLICATION_CREDENTIALS = GCP_CREDENTIALS_PATH;
+const AMOUNT_FIELDS: number = 50;
+const AMOUNT_CHARS_PER_FIELD: number = 100;
+const DS_LIMIT: number = 500
+const PARALELISM: number = 300
+const NUMBER_OF_ENTITIES: number = 100000
 
-    return getNonNullableFields({
-        GCP_PROJECT_ID,
-        APP_ENV,
-        DS_LIMIT,
-        KIND,
-        GCP_CREDENTIALS_PATH,
-    })
-}
 async function moveABunchOfData(): Promise<void> {
     loadEnvironmentByName('.env');
 
@@ -137,6 +127,23 @@ async function moveABunchOfData(): Promise<void> {
     }
 }
 
+function getEnvironment(): Env {
+    const GCP_PROJECT_ID = process.env.GCP_PROJECT_ID;
+    const APP_ENV = process.env.APP_ENV;
+    const KIND = process.env.KIND;
+    const GCP_CREDENTIALS_PATH = process.env.GCP_CREDENTIALS_PATH;
+
+    process.env.GCLOUD_PROJECT = GCP_PROJECT_ID;
+    process.env.GOOGLE_APPLICATION_CREDENTIALS = GCP_CREDENTIALS_PATH;
+
+    return getNonNullableFields({
+        GCP_PROJECT_ID,
+        APP_ENV,
+        DS_LIMIT,
+        KIND,
+        GCP_CREDENTIALS_PATH,
+    })
+}
 
 // // // // // // // // 
 
@@ -362,11 +369,7 @@ interface Env {
     GCP_CREDENTIALS_PATH: string;
 }
 
-const AMOUNT_FIELDS: number = 50;
-const AMOUNT_CHARS_PER_FIELD: number = 100;
-const DS_LIMIT: number = 500
-const PARALELISM: number = 300
-const NUMBER_OF_ENTITIES: number = 100000
+
 
 
 
