@@ -10,7 +10,7 @@ import dotenv = require('dotenv');
 const AMOUNT_FIELDS: number = 50;
 const AMOUNT_CHARS_PER_FIELD: number = 100;
 const DS_LIMIT: number = 500;
-const PARALELISM: number = 36; // 35 // 18k
+const PARALELISM: number = 36; // 36 // 18k
 const NUMBER_OF_ENTITIES: number = 100000;
 
 async function moveABunchOfData(): Promise<void> {
@@ -31,6 +31,7 @@ async function moveABunchOfData(): Promise<void> {
     try {
         let promises: Promise<void>[] = [];
         let start = Date.now()
+
         for (const items of getSlicedArray(entities, DS_LIMIT)) {
             upsertArray.push(...items.map(row => getPayload(KIND, row['id'], row)));
 
