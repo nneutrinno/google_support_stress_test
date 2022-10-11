@@ -2,6 +2,7 @@ import * as Datastore from '@google-cloud/datastore';
 import * as _ from 'lodash';
 import * as path from 'path';
 import * as util from 'util';
+import * as fs from 'fs';
 import dotenv = require('dotenv');
 
 
@@ -140,6 +141,8 @@ async function moveABunchOfData(): Promise<void> {
 // // // // // // // // 
 
 function loadEnvironmentByName(name: string) {
+    if (!fs.existsSync(path.join(__dirname, name))) throw new Error(`Missing ${name}`)
+
     dotenv.config({
         path: path.join(__dirname, name)
     });
