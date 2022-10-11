@@ -10,15 +10,15 @@ import dotenv = require('dotenv');
 const AMOUNT_FIELDS: number = 50;
 const AMOUNT_CHARS_PER_FIELD: number = 100;
 const DS_LIMIT: number = 500;
-const PARALELISM: number = 36; // 36 // 18k
+const PARALELISM: number = 5; // 36 // 18k
 const NUMBER_OF_ENTITIES: number = 100000;
+const NUMBER_OF_CONNECTIONS_OPEN = 10;
+
+
+
+
 
 async function moveABunchOfData(): Promise<void> {
-    loadEnvironmentByName('.env');
-
-    const environment = getEnvironment()
-
-    const { APP_ENV, DS_LIMIT, GCP_PROJECT_ID, KIND } = environment;
 
     log(environment);
     
@@ -26,20 +26,22 @@ async function moveABunchOfData(): Promise<void> {
     
     let upsertArray: DatastorePayload<Row>[] = [];
     let count: number = 0;
-    const ds = getDS();
+
+    TransactDatastore.initDataStore();
+
 
     try {
         let promises: Promise<void>[] = [];
         let start = Date.now()
 
         for (const items of getSlicedArray(entities, DS_LIMIT)) {
-            upsertArray.push(...items.map(row => getPayload(KIND, row['id'], row)));
+            upsertArray.push(...items.map(row => getPayload(environment.KIND, row['id'], row)));
 
             // 
 
             if (isValidArray(upsertArray)) {
                 ++count;
-                promises.push(upsert(upsertArray));
+                promises.push(upsert(TransactDatastore.getDatastoreConnection, upsertArray));
                 upsertArray = []
             }
 
@@ -59,8 +61,9 @@ async function moveABunchOfData(): Promise<void> {
         await Promise.all(promises)
 
         log("🚀 ~ file: datastore-stress-test.ts ~ line 291 ~ moveABunchOfData ~ out");
-        const items = await Promise.all(entities.map(item => ds.get(getGenericKey(ds, KIND, item.id))));
-        log('Saved', items.filter(isValidRef).length)
+        // const ds = 
+        // const items = await Promise.all(entities.map(item => ds.get(getGenericKey(ds, KIND, item.id))));
+        // log('Saved', items.filter(isValidRef).length)
         
     } catch (err) {
         log('err', err);
@@ -73,14 +76,6 @@ async function moveABunchOfData(): Promise<void> {
         return row;
     }
     
-    
-    function getDS() {
-        return new Datastore.Datastore({
-            projectId: GCP_PROJECT_ID,
-            apiEndpoint: '',
-            namespace: APP_ENV,
-        })
-    }
     function stringKey(key: TDatastoreKey): string {
         return key.name + key.kind;
     }
@@ -97,7 +92,8 @@ async function moveABunchOfData(): Promise<void> {
         };
         return nonRepeatedArray;
     };
-    async function upsert(upsertArray: TArrayUpsert): Promise<void> {
+    async function upsert(getDS: () => Datastore.Datastore, upsertArray: TArrayUpsert): Promise<void> {
+        const ds = getDS();
         const nonRepeatedArray: DatastorePayload[] = getNonRepeatedUpsertKey(upsertArray);
 
         try {
@@ -131,7 +127,7 @@ async function moveABunchOfData(): Promise<void> {
     }
     function getPayload<T extends {}>(kind: string, id: string, data: T): DatastorePayload<T> {
         return {
-            key: getGenericKey(ds, kind, id),
+            key: getGenericKey(getDS(), kind, id),
             data
         }
     }
@@ -152,6 +148,36 @@ function getEnvironment(): Env {
         DS_LIMIT,
         KIND,
         GCP_CREDENTIALS_PATH,
+    })
+}
+
+class TransactDatastore {
+    private static currentUsed: number;
+    private static dataStore: Datastore.Datastore[];
+
+    public static initDataStore(): void {
+        TransactDatastore.dataStore = [];
+        TransactDatastore.currentUsed = 0;
+
+        for (let k = 0; k < NUMBER_OF_CONNECTIONS_OPEN; ++k) {
+            TransactDatastore.dataStore.push(getDS());
+        }
+    };
+
+    public static getDatastoreConnection(): TDatastore {
+        if (++TransactDatastore.currentUsed >= NUMBER_OF_CONNECTIONS_OPEN) {
+            TransactDatastore.currentUsed = 0;
+        }
+        return TransactDatastore.dataStore[TransactDatastore.currentUsed];
+    };
+}
+
+
+function getDS() {
+    return new Datastore.Datastore({
+        projectId: environment.GCP_PROJECT_ID,
+        apiEndpoint: '',
+        namespace: environment.APP_ENV,
     })
 }
 
@@ -411,4 +437,7 @@ function log(...message: unknown[]): void {
 
 // 
 
-moveABunchOfData()
+
+loadEnvironmentByName('.env');
+const environment = getEnvironment();
+moveABunchOfData();
