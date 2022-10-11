@@ -9,9 +9,9 @@ import dotenv = require('dotenv');
 
 const AMOUNT_FIELDS: number = 50;
 const AMOUNT_CHARS_PER_FIELD: number = 100;
-const DS_LIMIT: number = 500
-const PARALELISM: number = 300
-const NUMBER_OF_ENTITIES: number = 100000
+const DS_LIMIT: number = 500;
+const PARALELISM: number = 36; // 35 // 18k
+const NUMBER_OF_ENTITIES: number = 100000;
 
 async function moveABunchOfData(): Promise<void> {
     loadEnvironmentByName('.env');
@@ -30,9 +30,11 @@ async function moveABunchOfData(): Promise<void> {
 
     try {
         let promises: Promise<void>[] = [];
-
+        let start = Date.now()
         for (const items of getSlicedArray(entities, DS_LIMIT)) {
             upsertArray.push(...items.map(row => getPayload(KIND, row['id'], row)));
+
+            // 
 
             if (isValidArray(upsertArray)) {
                 ++count;
@@ -41,8 +43,14 @@ async function moveABunchOfData(): Promise<void> {
             }
 
             if (count % PARALELISM === 0) {
+                const amount = count * DS_LIMIT;
+                // 
                 count = 0;
-                await Promise.all(promises)
+                await Promise.all(promises);
+                const lapsed = Math.trunc((Date.now() - start) / 1000);
+                console.log('amount', amount, Math.trunc(amount / lapsed), 'per second', lapsed, 'seconds');
+                start = Date.now();
+
                 promises = [];
             }
         }
@@ -58,7 +66,9 @@ async function moveABunchOfData(): Promise<void> {
     }
     
     function generateRow(): Row {
-        const row: Row = { ...getMock(), id: SafeId.create() };
+        const mock = getMock();
+
+        const row: Row = { ...mock, id: SafeId.create(), [`field${1000}`]: mock };
         return row;
     }
     
@@ -107,11 +117,10 @@ async function moveABunchOfData(): Promise<void> {
                 const datastore = ds;
                 await datastore.upsert(nonRepeatedArray);
             };
-
         } catch (err) {
-            log('upsert', {
-                err,
-            })
+            // log('upsert', {
+            //     err,
+            // })
             throw err;
         }
     }
