@@ -7,24 +7,36 @@ import dotenv = require('dotenv');
 
 
 
-const AMOUNT_FIELDS: number = 50;
-const AMOUNT_CHARS_PER_FIELD: number = 100;
-const DS_LIMIT: number = 500;
-const PARALELISM: number = 5; // 36 // 18k
-const NUMBER_OF_ENTITIES: number = 100000;
+
+
+const AMOUNT_FIELDS = 10;
+const AMOUNT_CHARS_PER_FIELD = 100;
+const DS_LIMIT = 500;
+const PARALELISM = 5; // 36 // 18k
+const NUMBER_OF_ENTITIES = 100000;
 const NUMBER_OF_CONNECTIONS_OPEN = 10;
 
-
-
-async function moveABunchOfData(): Promise<void> {
-
-    log(environment);
     
+async function moveABunchOfData(): Promise<void> {
+    log(environment);
+    log({
+        AMOUNT_FIELDS,
+        AMOUNT_CHARS_PER_FIELD,
+        DS_LIMIT,
+        PARALELISM,
+        NUMBER_OF_ENTITIES,
+        NUMBER_OF_CONNECTIONS_OPEN,
+    });
+
+
     const entities = _.range(NUMBER_OF_ENTITIES).map(generateRow);
     
     let upsertArray: DatastorePayload<Row>[] = [];
     let count: number = 0;
-
+    let iterations: number = 0;
+    let total: number = 0;
+    const generalStart = Date.now();
+    
     TransactDatastore.initDataStore();
 
     try {
@@ -43,21 +55,29 @@ async function moveABunchOfData(): Promise<void> {
             }
 
             if (count % PARALELISM === 0) {
+                iterations++;
                 const amount = count * DS_LIMIT;
                 // 
                 count = 0;
                 await Promise.all(promises);
                 const lapsed = Math.trunc((Date.now() - start) / 1000);
+                total += amount;
                 console.log('amount', amount, Math.trunc(amount / lapsed), 'per second', lapsed, 'seconds');
                 start = Date.now();
 
                 promises = [];
+                if (iterations >= 50) break;
             }
         }
 
         await Promise.all(promises)
 
         log("🚀 ~ file: datastore-stress-test.ts ~ line 291 ~ moveABunchOfData ~ out");
+        
+        const lapsed = Math.trunc((Date.now() - generalStart) / 1000);
+        const average = Math.trunc(total / lapsed);
+        
+        log(average, 'per total second');
         
     } catch (err) {
         log('err', err);

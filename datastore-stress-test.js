@@ -5,7 +5,6 @@ const util = require('util');
 const fs = require('fs');
 const dotenv = require('dotenv');
 
-
 const AMOUNT_FIELDS = 10;
 const AMOUNT_CHARS_PER_FIELD = 100;
 const DS_LIMIT = 500;
@@ -22,10 +21,13 @@ async function moveABunchOfData() {
         PARALELISM,
         NUMBER_OF_ENTITIES,
         NUMBER_OF_CONNECTIONS_OPEN,
-    })
+    });
     const entities = _.range(NUMBER_OF_ENTITIES).map(generateRow);
     let upsertArray = [];
     let count = 0;
+    let iterations = 0;
+    let total = 0;
+    const generalStart = Date.now();
     TransactDatastore.initDataStore();
     try {
         let promises = [];
@@ -39,18 +41,25 @@ async function moveABunchOfData() {
                 upsertArray = [];
             }
             if (count % PARALELISM === 0) {
+                iterations++;
                 const amount = count * DS_LIMIT;
                 // 
                 count = 0;
                 await Promise.all(promises);
                 const lapsed = Math.trunc((Date.now() - start) / 1000);
+                total += amount;
                 console.log('amount', amount, Math.trunc(amount / lapsed), 'per second', lapsed, 'seconds');
                 start = Date.now();
                 promises = [];
+                if (iterations >= 50)
+                    break;
             }
         }
         await Promise.all(promises);
         log("🚀 ~ file: datastore-stress-test.ts ~ line 291 ~ moveABunchOfData ~ out");
+        const lapsed = Math.trunc((Date.now() - generalStart) / 1000);
+        const average = Math.trunc(total / lapsed);
+        log(average, 'per total second');
     }
     catch (err) {
         log('err', err);
