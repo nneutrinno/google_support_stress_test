@@ -62,7 +62,14 @@ async function moveABunchOfData(): Promise<void> {
                 await Promise.all(promises);
                 const lapsed = Math.trunc((Date.now() - start) / 1000);
                 total += amount;
-                console.log('amount', amount, Math.trunc(amount / lapsed), 'per second', lapsed, 'seconds');
+                log(
+                    'iterations',
+                    iterations,
+                    'amount',
+                    amount,
+                    Math.trunc(amount / lapsed), 'per second',
+                    lapsed, 'seconds'
+                );
                 start = Date.now();
 
                 promises = [];
