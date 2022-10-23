@@ -16,7 +16,11 @@ const PARALELISM = 5; // 36 // 18k
 const NUMBER_OF_ENTITIES = 100000;
 const NUMBER_OF_CONNECTIONS_OPEN = 10;
 
-    
+
+const IS_USING_NESTED_ARRAY = true;
+const NUMBER_OF_ARRAY_ELEMENTS = 10;
+const NUMBER_OF_ARRAY_FIELDS_PER_ELEMENT = 10;
+
 async function moveABunchOfData(): Promise<void> {
     log(environment);
     log({
@@ -94,6 +98,9 @@ async function moveABunchOfData(): Promise<void> {
         const mock = getMock();
 
         const row: Row = { ...mock, id: SafeId.create(), [`field${1000}`]: mock };
+        if (IS_USING_NESTED_ARRAY) {
+            row.list = _.range(NUMBER_OF_ARRAY_ELEMENTS).map(() => getListMock());
+        }
         return row;
     }
     
@@ -415,20 +422,43 @@ interface Env {
 
 
 
+function defineMockCreator(amount: number = AMOUNT_FIELDS) {
+    let mocked: (Mock | undefined);
+
+    return getMock;
+
+    function getMock() {
+        if (mocked) return mocked;
+
+        const mock: Mock = createMock(amount);
+        mocked = mock;
+
+        return mocked;
+    }
+}
+
 let mocked: (Mock | undefined);
 
-function getMock() {
+function getMock(amount: number = AMOUNT_FIELDS) {
     if (mocked) return mocked;
 
-    const mock: Mock = {};
-    _.range(AMOUNT_FIELDS).map(id => mock[`field${id}`] = SafeId.getGenerated(AMOUNT_CHARS_PER_FIELD));
+    const mock: Mock = createMock(amount);
     mocked = mock;
 
     return mocked;
 }
 
 
-type Row = & { id: string } & Mock
+const getListMock = defineMockCreator(NUMBER_OF_ARRAY_FIELDS_PER_ELEMENT);
+
+
+function createMock(amount: number = AMOUNT_FIELDS) {
+    const mock: Mock = {};
+    _.range(amount).map(id => mock[`field${id}`] = SafeId.getGenerated(AMOUNT_CHARS_PER_FIELD));
+    return mock;
+}
+
+type Row = & { id: string } & Mock & { list?: object[] }
 type Mock = & { [key in `field${number}`]: string }
 
 
