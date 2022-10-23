@@ -6,14 +6,15 @@ const fs = require('fs');
 const dotenv = require('dotenv');
 
 
-
 const AMOUNT_FIELDS = 10;
 const AMOUNT_CHARS_PER_FIELD = 100;
 const DS_LIMIT = 500;
 const PARALELISM = 5; // 36 // 18k
 const NUMBER_OF_ENTITIES = 100000;
 const NUMBER_OF_CONNECTIONS_OPEN = 10;
-
+const IS_USING_NESTED_ARRAY = true;
+const NUMBER_OF_ARRAY_ELEMENTS = 10;
+const NUMBER_OF_ARRAY_FIELDS_PER_ELEMENT = 10;
 async function moveABunchOfData() {
     log(environment);
     log({
@@ -69,6 +70,9 @@ async function moveABunchOfData() {
     function generateRow() {
         const mock = getMock();
         const row = { ...mock, id: SafeId.create(), [`field${1000}`]: mock };
+        if (IS_USING_NESTED_ARRAY) {
+            row.list = _.range(NUMBER_OF_ARRAY_ELEMENTS).map(() => getListMock());
+        }
         return row;
     }
     function getGenericKey(datastore, kind, id) {
@@ -277,14 +281,30 @@ function isValidArray(array, min = 1) {
     return isValidRef(array) && Array.isArray(array) && array.length >= min;
 }
 ;
+function defineMockCreator(amount = AMOUNT_FIELDS) {
+    let mocked;
+    return getMock;
+    function getMock() {
+        if (mocked)
+            return mocked;
+        const mock = createMock(amount);
+        mocked = mock;
+        return mocked;
+    }
+}
 let mocked;
-function getMock() {
+function getMock(amount = AMOUNT_FIELDS) {
     if (mocked)
         return mocked;
-    const mock = {};
-    _.range(AMOUNT_FIELDS).map(id => mock[`field${id}`] = SafeId.getGenerated(AMOUNT_CHARS_PER_FIELD));
+    const mock = createMock(amount);
     mocked = mock;
     return mocked;
+}
+const getListMock = defineMockCreator(NUMBER_OF_ARRAY_FIELDS_PER_ELEMENT);
+function createMock(amount = AMOUNT_FIELDS) {
+    const mock = {};
+    _.range(amount).map(id => mock[`field${id}`] = SafeId.getGenerated(AMOUNT_CHARS_PER_FIELD));
+    return mock;
 }
 function print(...message) {
     return util.formatWithOptions({ colors: true, depth: null, showHidden: true, showProxy: true }, ...message);
@@ -296,4 +316,3 @@ function log(...message) {
 loadEnvironmentByName('.env');
 const environment = getEnvironment();
 moveABunchOfData();
-
