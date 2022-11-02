@@ -1,20 +1,44 @@
-const Datastore = require('@google-cloud/datastore');
-const _ = require('lodash');
-const path = require('path');
-const util = require('util');
-const fs = require('fs');
-const dotenv = require('dotenv');
-
-
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const Datastore = __importStar(require("@google-cloud/datastore"));
+const _ = __importStar(require("lodash"));
+const path = __importStar(require("path"));
+const util = __importStar(require("util"));
+const fs = __importStar(require("fs"));
+const dotenv = require("dotenv");
 const AMOUNT_FIELDS = 10;
 const AMOUNT_CHARS_PER_FIELD = 100;
 const DS_LIMIT = 500;
 const PARALELISM = 5; // 36 // 18k
-const NUMBER_OF_ENTITIES = 100000;
-const NUMBER_OF_CONNECTIONS_OPEN = 10;
+const NUMBER_OF_ENTITIES = 1000000;
+const NUMBER_OF_CONNECTIONS_OPEN = 20;
 const IS_USING_NESTED_ARRAY = true;
 const NUMBER_OF_ARRAY_ELEMENTS = 10;
 const NUMBER_OF_ARRAY_FIELDS_PER_ELEMENT = 10;
+const AMOUNT_CHARS_PER_FIELD_IN_ARRAY = 20;
 async function moveABunchOfData() {
     log(environment);
     log({
@@ -130,6 +154,8 @@ async function upsert(getDS, upsertArray) {
     }
 }
 class TransactDatastore {
+    static currentUsed;
+    static dataStore;
     static initDataStore() {
         TransactDatastore.dataStore = [];
         TransactDatastore.currentUsed = 0;
@@ -179,6 +205,9 @@ function assertNonNullable(entity, name) {
 }
 const base16Chars = "0123456789abcdef";
 class SafeId {
+    id;
+    time;
+    date;
     constructor(id) {
         this.id = id;
         if (this.id && this.id.length !== 24) {
@@ -281,29 +310,23 @@ function isValidArray(array, min = 1) {
     return isValidRef(array) && Array.isArray(array) && array.length >= min;
 }
 ;
-function defineMockCreator(amount = AMOUNT_FIELDS) {
+function defineMockCreator(amount, amountChars) {
     let mocked;
     return getMock;
     function getMock() {
         if (mocked)
             return mocked;
-        const mock = createMock(amount);
+        const mock = createMock(amount, amountChars);
         mocked = mock;
         return mocked;
     }
 }
 let mocked;
-function getMock(amount = AMOUNT_FIELDS) {
-    if (mocked)
-        return mocked;
-    const mock = createMock(amount);
-    mocked = mock;
-    return mocked;
-}
-const getListMock = defineMockCreator(NUMBER_OF_ARRAY_FIELDS_PER_ELEMENT);
-function createMock(amount = AMOUNT_FIELDS) {
+const getMock = defineMockCreator(AMOUNT_FIELDS, AMOUNT_CHARS_PER_FIELD);
+const getListMock = defineMockCreator(NUMBER_OF_ARRAY_FIELDS_PER_ELEMENT, AMOUNT_CHARS_PER_FIELD_IN_ARRAY);
+function createMock(amount, amountChars) {
     const mock = {};
-    _.range(amount).map(id => mock[`field${id}`] = SafeId.getGenerated(AMOUNT_CHARS_PER_FIELD));
+    _.range(amount).map(id => mock[`field${id}`] = SafeId.getGenerated(amountChars));
     return mock;
 }
 function print(...message) {
