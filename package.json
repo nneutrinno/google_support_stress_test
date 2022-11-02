@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
+  "scripts": {
+    "start": "git pull; ts-node --swc datastore-stress-test.ts"
+  },
   "dependencies": {
     "typescript": "4.7.3",
     "@google-cloud/datastore": "^7.0.0",
