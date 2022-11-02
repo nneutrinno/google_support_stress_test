@@ -32,7 +32,7 @@ const dotenv = require("dotenv");
 const AMOUNT_FIELDS = 10;
 const AMOUNT_CHARS_PER_FIELD = 100;
 const DS_LIMIT = 500;
-const PARALELISM = 5; // 36 // 18k
+const PARALELISM = 20; // 36 // 18k
 const NUMBER_OF_ENTITIES = 1000000;
 const NUMBER_OF_CONNECTIONS_OPEN = 20;
 const IS_USING_NESTED_ARRAY = true;
@@ -48,6 +48,10 @@ async function moveABunchOfData() {
         PARALELISM,
         NUMBER_OF_ENTITIES,
         NUMBER_OF_CONNECTIONS_OPEN,
+        IS_USING_NESTED_ARRAY,
+        NUMBER_OF_ARRAY_ELEMENTS,
+        NUMBER_OF_ARRAY_FIELDS_PER_ELEMENT,
+        AMOUNT_CHARS_PER_FIELD_IN_ARRAY,
     });
     const entities = _.range(NUMBER_OF_ENTITIES).map(generateRow);
     let upsertArray = [];
