@@ -13,13 +13,15 @@ const AMOUNT_FIELDS = 10;
 const AMOUNT_CHARS_PER_FIELD = 100;
 const DS_LIMIT = 500;
 const PARALELISM = 5; // 36 // 18k
-const NUMBER_OF_ENTITIES = 100000;
-const NUMBER_OF_CONNECTIONS_OPEN = 10;
+const NUMBER_OF_ENTITIES = 1000000;
+const NUMBER_OF_CONNECTIONS_OPEN = 20;
 
 
 const IS_USING_NESTED_ARRAY = true;
 const NUMBER_OF_ARRAY_ELEMENTS = 10;
 const NUMBER_OF_ARRAY_FIELDS_PER_ELEMENT = 10;
+const AMOUNT_CHARS_PER_FIELD_IN_ARRAY = 20;
+
 
 async function moveABunchOfData(): Promise<void> {
     log(environment);
@@ -32,9 +34,8 @@ async function moveABunchOfData(): Promise<void> {
         NUMBER_OF_CONNECTIONS_OPEN,
     });
 
-
     const entities = _.range(NUMBER_OF_ENTITIES).map(generateRow);
-    
+
     let upsertArray: DatastorePayload<Row>[] = [];
     let count: number = 0;
     let iterations: number = 0;
@@ -419,10 +420,7 @@ interface Env {
 
 
 
-
-
-
-function defineMockCreator(amount: number = AMOUNT_FIELDS) {
+function defineMockCreator(amount: number, amountChars: number) {
     let mocked: (Mock | undefined);
 
     return getMock;
@@ -430,7 +428,7 @@ function defineMockCreator(amount: number = AMOUNT_FIELDS) {
     function getMock() {
         if (mocked) return mocked;
 
-        const mock: Mock = createMock(amount);
+        const mock: Mock = createMock(amount, amountChars);
         mocked = mock;
 
         return mocked;
@@ -439,22 +437,24 @@ function defineMockCreator(amount: number = AMOUNT_FIELDS) {
 
 let mocked: (Mock | undefined);
 
-function getMock(amount: number = AMOUNT_FIELDS) {
-    if (mocked) return mocked;
-
-    const mock: Mock = createMock(amount);
-    mocked = mock;
-
-    return mocked;
-}
 
 
-const getListMock = defineMockCreator(NUMBER_OF_ARRAY_FIELDS_PER_ELEMENT);
+const getMock = defineMockCreator(
+    AMOUNT_FIELDS,
+    AMOUNT_CHARS_PER_FIELD,
+);
 
 
-function createMock(amount: number = AMOUNT_FIELDS) {
+
+const getListMock = defineMockCreator(
+    NUMBER_OF_ARRAY_FIELDS_PER_ELEMENT,
+    AMOUNT_CHARS_PER_FIELD_IN_ARRAY
+);
+
+
+function createMock(amount: number, amountChars: number) {
     const mock: Mock = {};
-    _.range(amount).map(id => mock[`field${id}`] = SafeId.getGenerated(AMOUNT_CHARS_PER_FIELD));
+    _.range(amount).map(id => mock[`field${id}`] = SafeId.getGenerated(amountChars));
     return mock;
 }
 
